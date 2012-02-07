@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<link href="favicon.ico" rel="shortcut icon">
+	<link rel="stylesheet" href="css/style.css">
+	<title></title>  
+	<!--[if lt IE 9]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+	<script>
+	var table = null;
+	function Table(conf)
+  	{
+  		conf = conf || {};
+  		var config = {
+	  			page : conf.page || '', // current page
+	  			sortField : conf.sortField || '', // sort field
+	  			sortOrder : conf.sortOrder || '', // sort order
+	  			genre : conf.genre || '', // book genre
+	  			recordId : conf.recordId || '', // book id
+	  			q : conf.q || '' // search query
+  			},
+  			tableHead = document.getElementsByClassName('head')[0]; // table head element
+  		// prepare params for ajax and history url	
+  		this.prepareParams = function() 
+		{
+			var params = []
+			for (var i in config)
+			{
+				params.push(i+'='+config[i])
+			}
+			return '?'+params.join('&');
+		}
+		this.setPage = function(page)
+		{
+			config.page = page;
+			updateUrl();
+		}
+		this.setGenre = function(genre)
+		{
+			config.genre = genre;
+			updateUrl();
+		}
+		this.setQuery = function(q)
+		{
+			config.q = q;
+			updateUrl();
+		}
+		this.sortByField = function(field)
+		{
+			config.sortField = field;
+			config.sortOrder = config.sortOrder == 'asc' ? 'desc' : 'asc';
+			var c = tableHead.childNodes
+			for ( var i = 0; i < c.length; i++ ) 
+			{
+				if ( c[i].nodeType == 1 ) //element node
+				{
+					utils.removeClass(c[i],'sort').removeClass(c[i],'asc').removeClass(c[i],'desc');
+					if (c[i].getAttribute('data-field')==field)
+					{
+						utils.addClass(c[i],'sort');
+						utils.addClass(c[i],config.sortOrder);
+					}
+				}
+			} 
+			updateUrl();
+		}
+		this.editRecord = function(id)
+		{
+			modalDialog.show();
+		}
+		this.saveRecord = function()
+		{
+			modalDialog.hide();
+		}
+		function updateUrl()
+		{
+			if (!history.pushState) 
+				return;
+			var url = location.protocol + '//' + location.host + location.pathname + table.prepareParams();
+			history.pushState(config, "", url);
+			ajax.get('url'+table.prepareParams(),null,function(){
+				
+			})  
+		}
+		ajax.get('url'+this.prepareParams(),null,function(){
+			})
+		if (config.q != '')
+			document.getElementById('name').value = config.q;
+		if (config.genre != ''){
+			
+			var selectedIndex = document.querySelector('#select-choice option[value="'+config.genre+'"]').index;
+			document.getElementById('select-choice').selectedIndex = selectedIndex;
+		}
+  	}
+	var utils = {
+		//add class to element
+		addClass:function (elem, clazz) {
+			var c = elem.className.split(' ');
+			for(var i=0; i<c.length; i++) {
+				if (c[i] == clazz ) return;
+			}
+			if (elem.className == '') 
+				elem.className = clazz;
+			else 
+				elem.className += ' ' + clazz;
+		},
+		//remove class from element
+		removeClass: function(elem, clazz) {
+			var c = elem.className.split(' ');
+			for(var i=0; i<c.length; i++) {
+				if (c[i] == clazz) 
+					c.splice(i--, 1)
+			}
+			elem.className = c.join(' ');
+			return this;
+		},
+		//find absolute element position
+		findAbsPositon: function(obj) {
+			var curleft = curtop = 0;
+			if (obj.offsetParent) {
+				do {
+					curleft += obj.offsetLeft;
+					curtop += obj.offsetTop;
+				} while (obj = obj.offsetParent);
+				return {x:curleft,y:curtop};
+			}
+		},
+		//get scroll offset
+		getScrollOffsets: function (w) {
+			w = w || window;
+			if (w.pageXOffset != null) 
+				return {x: w.pageXOffset, y:w.pageYOffset};
+			var d = w.document;
+			if (document.compatMode == "CSS1Compat")
+				return {x:d.documentElement.scrollLeft, y:d.documentElement.scrollTop};
+			return { x: d.body.scrollLeft, y: d.body.scrollTop };
+		},
+		// add event listener
+		addEvent: function (target, type, handler) {
+	        if (target.addEventListener)
+	            target.addEventListener(type, handler, false);
+	        else
+	            target.attachEvent("on" + type, function(event) {
+		                                        	return handler.call(target, event);
+		                                         });
+	    }
+	}	
+	
+	var ajax = {
+		post:function(url,data,hander){
+			console.log('ajax');
+			return 1;
+				var request = new XMLHttpRequest(); 
+			request.open("POST", url); 
+			request.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+			request.onreadystatechange = function() { 
+				if (request.readyState === 4 && request.status === 200) {
+					var type = request.getResponseHeader("Content-Type");
+					if (type.indexOf("xml") !== -1 && request.responseXML)
+						hander(request.responseXML); // Document response
+					else if (type === "application/json")
+						hander(JSON.parse(request.responseText)); // JSON response
+					else
+						hander(request.responseText); 
+				}
+			};
+			request.send(data); 
+		},
+	  get:function(url,data,hander){
+		  	console.log('ajax');
+		  	//update html
+		  	/*
+			var str = '<table class="table" width="1130">'+
+		        '<tr class="head">'+
+					'<th width="300" onclick="table.sortByField(\'title\')" data-field="title">Название</th>'+
+					'<th width="300" onclick="table.sortByField(\'author\')" data-field="author">Автор</th>'+
+					'<th width="300" class="sort asc" onclick="table.sortByField(\'numberOfReader\')" data-field="numberOfReader">Количество читателей</th>'+
+					'<th width="230">&nbsp;</th>'+
+				'</tr>'+
+				'<tr>'+
+					'<td width="300"><a href="http://ru.two-books.net/books/200.html" target="_blank">Мастер и Маргарита</a></td>'+
+					'<td width="300">Михаил Булгаков</td>'+
+					'<td width="300">317</td>'+
+					'<td width="230"><img src="img/edit.png" class="edit_record hide" onclick="table.editRecord(\'111\')"   data-id="200" /></td>'+
+				'</tr>'+
+				'<tr>'+
+					'<td><a href="http://ru.two-books.net/books/348.html" target="_blank">Властелин колец</a></td>'+
+					'<td>Джон Р. Р. Толкин</td>'+
+					'<td>138</td>'+
+					'<td ><img src="img/edit.png" class="edit_record hide" onclick="table.editRecord(\'222\')"   data-id="348" /></td>'+
+				'</tr>'+
+			'</table>';
+			*/
+			document.getElementById('main_content').innerHTML  = document.getElementById('main_content').innerHTML;
+		  	return 1;
+		  	var request = new XMLHttpRequest(); 
+			request.open("GET", url); 
+			request.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+			request.onreadystatechange = function() { 
+				if (request.readyState === 4 && request.status === 200) {
+					var type = request.getResponseHeader("Content-Type");
+					if (type.indexOf("xml") !== -1 && request.responseXML)
+						hander(request.responseXML); // Document response
+					else if (type === "application/json")
+						hander(JSON.parse(request.responseText)); // JSON response
+					else
+						hander(request.responseText); 
+				}
+			};
+			request.send(data);
+	}}
+  
+	var modalDialog = {
+		id : 'modal',
+		show : function () {
+			document.getElementById(this.id).style.display = 'block';
+			document.getElementById(this.id).style.top = (utils.getScrollOffsets().y + 40)+'px';
+		},
+		hide : function () {
+			document.getElementById(this.id).style.display = 'none';
+		},
+		hideModalDialog: function (e) {
+			var e = e || window.event;
+			if (e.which==27)
+				modalDialog.hide();
+		}
+	}
+	utils.addEvent(document,'keyup',modalDialog.hideModalDialog);
+	utils.addEvent(window,'load',function(){
+		window.table = new Table();
+	});
+	utils.addEvent(window,'popstate',function(event){
+		if (event.state) { 
+			config = event.state; 
+			table = new Table(config);
+		}
+		else 
+		{
+			table = new Table(config);
+			history.replaceState(config, "", location.protocol + '//' + location.host + location.pathname + table.prepareParams());
+		}
+	});
+	utils.addEvent(window,'scroll',function(){
+  		var scrollPos = utils.getScrollOffsets();
+  		var tableHead = document.getElementsByClassName('head')[0]
+  		var elementPos = utils.findAbsPositon(tableHead);
+  		if (elementPos.y > 0 )
+  			tableHead.setAttribute('data-y',elementPos.y)
+  		if (scrollPos.y > elementPos.y)
+  			tableHead.setAttribute('style','position:fixed;top:0px;');
+  		if (scrollPos.y < tableHead.getAttribute('data-y'))
+  			tableHead.setAttribute('style','');
+  	});
+  </script>
+</head>
+<body>
+	<div class="col_50" id="modal">
+		<div class="right close" onclick="modalDialog.hide();">x</div>
+		<form action="action" method="GET">
+			
+			<input type="button" onclick="table.saveRecord()" class="button center" value="Сохранить">
+		</form>
+	</div>
+
+  <div class="container">
+
+    <header class="header clearfix">
+      <div class="logo">Two-books.net</div>
+
+      <nav class="menu_main">
+        <ul>
+          <li class="active"><a href="#">О сервисе</a></li>
+          <li><a href="#">Книги</a></li>
+          <li><a href="#">Рецензии</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <div class="info">
+
+      <article class="article clearfix">
+        <div class="clearfix"></div>
+        <h1>Список лучших книг</h1>
+
+        <div class="col_100">
+          <form action="#" method="post" class="form">
+            <p class="col_33">
+              <label for="name">Поиск по названию</label><br/>
+              <input type="text" name="name" onkeyup="table.setQuery(this.value)" id="name" value="" />
+            </p>
+            <p class="col_33">
+              <label for="select-choice">Жанр:</label><br/>
+              <select name="select-choice" id="select-choice" onchange="table.setGenre(this.value)">
+             	 <option value="">---</option>
+                <option value="1">Бизнес литература</option>
+                <option value="2">Детективы</option>
+                <option value="3">Детская литература</option>
+                <option value="4">Фантастика</option>
+                <option value="5">Фэнтези</option>
+                <option value="6">Современная проза</option>
+                <option value="7">Мистика, ужасы</option>
+              </select>
+
+            </p>
+            <div class="clearfix"></div>
+           
+          </form>
+        </div>
+
+        <div class="clearfix"></div>
+		<br>
+
+        <div class="col_100" id="main_content">
+        
+        <table class="table" width="1130">
+        <tr class="head">
+			<th width="300" onclick="table.sortByField('title')" data-field="title">Название</th>
+			<th width="300" onclick="table.sortByField('author')" data-field="author">Автор</th>
+			<th width="300" class="sort asc" onclick="table.sortByField('numberOfReader')" data-field="numberOfReader">Количество читателей</th>
+			<th width="230">&nbsp;</th>
+		</tr>
+		<tr>
+			<td width="300"><a href='http://ru.two-books.net/books/200.html' target='_blank'>Мастер и Маргарита</a></td>
+			<td width="300">Михаил Булгаков</td>
+			<td width="300">317</td>
+			<td width="230"><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='200' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/348.html' target='_blank'>Властелин колец</a></td>
+		
+			<td>Джон Р. Р. Толкин</td>
+			<td>138</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='348' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/274.html' target='_blank'>1984</a></td>
+			<td>Джордж Оруэлл</td>
+			<td>120</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='274' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/335.html' target='_blank'>Сто лет одиночества</a></td>
+			<td>Габриэль Гарсиа Маркес</td>
+			<td>106</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'  onclick='table.editRecord("111")'  data-id='335' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/299.html' target='_blank'>Бойцовский клуб</a></td>
+			<td>Чак Паланик</td>
+			<td>104</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='299' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/225.html' target='_blank'>Три товарища</a></td>
+			<td>Э. М. Ремарк</td>
+		
+			<td>91</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='225' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/294.html' target='_blank'>Атлант расправил плечи</a></td>
+			<td>Айн Рэнд</td>
+			<td>82</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='294' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/387.html' target='_blank'>Хроники Амбера</a></td>
+			<td>Роджер Желязны</td>
+			<td>81</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='387' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/181.html' target='_blank'>Маленький принц</a></td>
+		
+			<td>Антуан де Сент-Экзюпери</td>
+			<td>68</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='181' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/29.html' target='_blank'>Над пропастью во ржи</a></td>
+			<td>Джером Дэвид Сэлинджер</td>
+			<td>62</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='29' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/297.html' target='_blank'>Пикник на обочине</a></td>
+			<td>Аркадий Стругацкий, Борис Стругацкий</td>
+			<td>62</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='297' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/49.html' target='_blank'>Преступление и наказание</a></td>
+			<td>Федор Михайлович Достоевский</td>
+			<td>57</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='49' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/1292.html' target='_blank'>Чайка Джонатан Ливингстон</a></td>
+			<td>Ричард Бах</td>
+		
+			<td>53</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='1292' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/254.html' target='_blank'>Дюна</a></td>
+			<td>Фрэнк Герберт</td>
+			<td>51</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='254' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/366.html' target='_blank'>Автостопом по Галактике</a></td>
+			<td>Дуглас Адамс</td>
+			<td>49</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='366' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/264.html' target='_blank'>Унесенные ветром</a></td>
+		
+			<td>Маргарет Митчелл</td>
+			<td>47</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='264' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/319.html' target='_blank'>Трудно быть богом</a></td>
+			<td>Аркадий Стругацкий, Борис Стругацкий</td>
+			<td>47</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='319' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/569.html' target='_blank'>Гарри Поттер (комплект из 7 книг)</a></td>
+			<td>Джоан К. Ролинг</td>
+			<td>47</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='569' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/37.html' target='_blank'>Граф Монте-Кристо</a></td>
+			<td>Александр Дюма</td>
+			<td>45</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='37' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/307.html' target='_blank'>Лабиринт отражений</a></td>
+			<td>Сергей Лукьяненко</td>
+		
+			<td>44</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='307' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/506.html' target='_blank'>Чапаев и Пустота</a></td>
+			<td>Виктор Пелевин</td>
+			<td>41</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='506' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/34.html' target='_blank'>Двенадцать стульев</a></td>
+			<td>Илья Ильф, Евгений Петров</td>
+			<td>40</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='34' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/41.html' target='_blank'>Алхимик</a></td>
+		
+			<td>Пауло Коэльо</td>
+			<td>39</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='41' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/594.html' target='_blank'>Мартин Иден</a></td>
+			<td>Джек Лондон</td>
+			<td>39</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='594' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/266.html' target='_blank'>451 градус по Фаренгейту</a></td>
+			<td>Рэй Брэдбери</td>
+			<td>38</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='266' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/497.html' target='_blank'>Идиот</a></td>
+			<td>Федор Mихайлович Достоевский</td>
+			<td>35</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='497' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/282.html' target='_blank'>Темная Башня</a></td>
+			<td>Стивен Кинг</td>
+		
+			<td>34</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='282' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/201.html' target='_blank'>Крестный Отец</a></td>
+			<td>Марио Пьюзо</td>
+			<td>33</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='201' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/60.html' target='_blank'>Портрет Дориана Грея</a></td>
+			<td>Оскар Уайльд</td>
+			<td>32</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='60' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/447.html' target='_blank'>Понедельник начинается в субботу</a></td>
+		
+			<td>Аркадий Стругацкий, Борис Стругацкий</td>
+			<td>30</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='447' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/474.html' target='_blank'>Одиночество в сети</a></td>
+			<td>Януш Леон Вишневский</td>
+			<td>28</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='474' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/487.html' target='_blank'>Град обреченный</a></td>
+			<td>Аркадий Стругацкий, Борис Стругацкий</td>
+			<td>28</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='487' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/536.html' target='_blank'>Триумфальная арка</a></td>
+			<td>Эрих Мария Ремарк</td>
+			<td>28</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='536' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/281.html' target='_blank'>Песнь льда и пламени</a></td>
+			<td>Джордж Мартин</td>
+		
+			<td>27</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='281' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/375.html' target='_blank'>Таинственный остров</a></td>
+			<td>Жюль Верн</td>
+			<td>27</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='375' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/397.html' target='_blank'>Метро 2033</a></td>
+			<td>Дмитрий Глуховский</td>
+			<td>27</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='397' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/340.html' target='_blank'>Лабиринты Ехо</a></td>
+		
+			<td>Макс Фрай</td>
+			<td>26</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='340' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/578.html' target='_blank'>Над кукушкиным гнездом</a></td>
+			<td>Кен Кизи</td>
+			<td>26</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='578' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/964.html' target='_blank'>Основание</a></td>
+			<td>Айзек Азимов</td>
+			<td>26</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='964' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/262.html' target='_blank'>Нейромант</a></td>
+			<td>Уильям Гибсон</td>
+			<td>25</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='262' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/318.html' target='_blank'>Волхв</a></td>
+			<td>Джон Фаулз</td>
+		
+			<td>25</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='318' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/859.html' target='_blank'>Гордость и предубеждение</a></td>
+			<td>Джейн Остен</td>
+			<td>25</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='859' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/306.html' target='_blank'>Generation П</a></td>
+			<td>Виктор Пелевин</td>
+			<td>24</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='306' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/475.html' target='_blank'>Братья Карамазовы</a></td>
+		
+			<td>Федор Михайлович Достоевский</td>
+			<td>23</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='475' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/48.html' target='_blank'>Анна Каренина</a></td>
+			<td>Лев Толстой</td>
+			<td>22</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='48' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/312.html' target='_blank'>Гиперион</a></td>
+			<td>Дэн Симмонс</td>
+			<td>22</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='312' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/347.html' target='_blank'>Ведьмак</a></td>
+			<td>Анджей Сапковский</td>
+			<td>22</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='347' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/451.html' target='_blank'>Так говорил Заратустра</a></td>
+			<td>Фридрих Ницше</td>
+		
+			<td>22</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='451' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/653.html' target='_blank'>Империя ангелов</a></td>
+			<td>Бернард Вербер</td>
+			<td>22</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='653' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/997.html' target='_blank'>Сага о ведьмаке и ведьмачке</a></td>
+			<td>Анджей Сапковский</td>
+			<td>22</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='997' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/30.html' target='_blank'>Богатый папа, бедный папа</a></td>
+		
+			<td>Роберт Т. Кийосаки, Шэрон Л. Лектер</td>
+			<td>21</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='30' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/257.html' target='_blank'>Криптономикон</a></td>
+			<td>Нил Стивенсон</td>
+			<td>21</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='257' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/442.html' target='_blank'>Дверь в лето</a></td>
+			<td>Роберт Хайнлайн</td>
+			<td>21</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='442' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/678.html' target='_blank'>Два капитана</a></td>
+			<td>Вениамин Каверин</td>
+			<td>21</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='678' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/836.html' target='_blank'>Война и мир</a></td>
+			<td>Лев Толстой</td>
+		
+			<td>20</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='836' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/362.html' target='_blank'>Чужак в чужой стране</a></td>
+			<td>Роберт Хайнлайн</td>
+			<td>19</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='362' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/446.html' target='_blank'>Игра в бисер</a></td>
+			<td>Герман Гессе</td>
+			<td>19</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='446' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/624.html' target='_blank'>Черный обелиск</a></td>
+		
+			<td>Эрих Мария Ремарк</td>
+			<td>19</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='624' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/698.html' target='_blank'>Герой нашего времени</a></td>
+			<td>Михаил Лермонтов</td>
+			<td>19</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='698' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/930.html' target='_blank'>Иллюзии, или Приключения вынужденного Мессии</a></td>
+			<td>Ричард Бах</td>
+			<td>19</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='930' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/1288.html' target='_blank'>Поющие в терновнике</a></td>
+			<td>Колин Маккалоу</td>
+			<td>19</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='1288' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/2075.html' target='_blank'>Вы, конечно, шутите, мистер Фейнман!</a></td>
+			<td>Ричард Ф. Фейнман</td>
+		
+			<td>18</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='2075' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/50.html' target='_blank'>Код да Винчи</a></td>
+			<td>Ден Браун</td>
+			<td>17</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='50' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/263.html' target='_blank'>Убить пересмешника</a></td>
+			<td>Харпер Ли</td>
+			<td>17</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='263' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/403.html' target='_blank'>Черновик</a></td>
+		
+			<td>Сергей Лукьяненко</td>
+			<td>17</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='403' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/579.html' target='_blank'>Алиса в стране чудес</a></td>
+			<td>Льюис Кэрролл</td>
+			<td>17</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='579' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/683.html' target='_blank'>Овод</a></td>
+			<td>Этель Лилиан Войнич</td>
+			<td>17</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='683' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/707.html' target='_blank'>Библия</a></td>
+			<td></td>
+			<td>17</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='707' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/298.html' target='_blank'>Степной волк</a></td>
+			<td>Герман Гессе</td>
+		
+			<td>16</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='298' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/518.html' target='_blank'>Робинзон Крузо</a></td>
+			<td>Даниель Дефо</td>
+			<td>16</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='518' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/826.html' target='_blank'>Золотой теленок</a></td>
+			<td>Илья Ильф, Евгений Петров</td>
+			<td>16</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='826' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/1018.html' target='_blank'>Три мушкетера</a></td>
+		
+			<td>Александр Дюма</td>
+			<td>16</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='1018' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/269.html' target='_blank'>Сумерки</a></td>
+			<td>Стефани Майер</td>
+			<td>15</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='269' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/433.html' target='_blank'>Хроники Нарнии</a></td>
+			<td>Клайв Льюис</td>
+			<td>15</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='433' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/1555.html' target='_blank'>Джен Эйр / Jane Eyre</a></td>
+			<td>Шарлотта Бронте</td>
+			<td>15</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='1555' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/249.html' target='_blank'>На Западном фронте без перемен</a></td>
+			<td>Эрих Мария Ремарк</td>
+		
+			<td>14</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='249' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/645.html' target='_blank'>Норвежский лес</a></td>
+			<td>Харуки Мураками</td>
+			<td>14</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='645' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/679.html' target='_blank'>Учение Дона Хуана</a></td>
+			<td>Карлос Кастанеда</td>
+			<td>14</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='679' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/1053.html' target='_blank'>Трансерфинг реальности</a></td>
+		
+			<td>Вадим Зеланд</td>
+			<td>14</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='1053' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/35.html' target='_blank'>Похождения бравого солдата Швейка во время мировой войны</a></td>
+			<td>Ярослав Гашек</td>
+			<td>13</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='35' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/360.html' target='_blank'>Солярис</a></td>
+			<td>Станислав Лем</td>
+			<td>13</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='360' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/415.html' target='_blank'>Игра Эндера</a></td>
+			<td>Орсон Скотт Кард</td>
+			<td>13</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='415' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/481.html' target='_blank'>Незнайка на Луне</a></td>
+			<td>Николай Носов</td>
+		
+			<td>13</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='481' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/51.html' target='_blank'>Приключения Тома Сойера</a></td>
+			<td>Марк Твен</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='51' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/261.html' target='_blank'>Как завоевывать друзей и оказывать влияние на людей</a></td>
+			<td>Дейл Карнеги</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='261' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/217.html' target='_blank'>Мертвые души</a></td>
+		
+			<td>Николай Гоголь</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='217' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/321.html' target='_blank'>Мы</a></td>
+			<td>Евгений Замятин</td>
+			<td>12</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='321' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/331.html' target='_blank'>Трое в лодке, не считая собаки</a></td>
+			<td>Джером К. Джером</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='331' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/341.html' target='_blank'>Источник</a></td>
+			<td>Айн Рэнд</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='341' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/367.html' target='_blank'>Отверженные</a></td>
+			<td>Виктор Гюго</td>
+		
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='367' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/604.html' target='_blank'>Ангелы и демоны</a></td>
+			<td>Дэн Браун</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='604' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/395.html' target='_blank'>Невыносимая легкость бытия</a></td>
+			<td>Милан Кундера</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='395' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/728.html' target='_blank'>Спектр</a></td>
+		
+			<td>Сергей Лукьяненко</td>
+			<td>12</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='728' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/796.html' target='_blank'>Чужак</a></td>
+			<td>Макс Фрай</td>
+			<td>12</td>
+		
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='796' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/317.html' target='_blank'>Наивно. Супер.</a></td>
+			<td>Эрленд Лу</td>
+			<td>11</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='317' /></td>
+		</tr>
+		<tr>
+		
+			<td><a href='http://ru.two-books.net/books/459.html' target='_blank'>День триффидов</a></td>
+			<td>Джон Уиндем</td>
+			<td>11</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='459' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/449.html' target='_blank'>Зеленая миля</a></td>
+			<td>Стивен Кинг</td>
+		
+			<td>11</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='449' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/540.html' target='_blank'>Тихий Дон</a></td>
+			<td>М. А. Шолохов</td>
+			<td>11</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='540' /></td>
+		
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/807.html' target='_blank'>Страна чудес без тормозов и конец света</a></td>
+			<td>Харуки Мураками</td>
+			<td>11</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='807' /></td>
+		</tr>
+		<tr>
+			<td><a href='http://ru.two-books.net/books/842.html' target='_blank'>Собачье сердце</a></td>
+		
+			<td>Михаил Булгаков</td>
+			<td>11</td>
+			<td ><img src='img/edit.png' class='edit_record hide' onclick='table.editRecord("111")'   data-id='842' /></td>
+		</tr>
+		</table>
+        
+			<div class="right">
+				<a href="javascript:void(0)" onclick="table.setPage(1)">1</a> <a href="javascript:void(0)" onclick="table.setPage(2)">2</a> <a href="javascript:void(0)" onclick="table.setPage(3)">3</a> <a href="javascript:void(0)" onclick="table.setPage(4)">4</a>
+			</div>
+        </div>
+
+        <div class="clearfix"></div>
+
+      </article>
+    </div>
+    
+    <footer class="footer clearfix">
+      <div class="copyright">Книги для развития и удовольствия</div>
+
+      <nav class="menu_bottom">
+        <ul>
+          <li class="active"><a href="#">О сервисе</a></li>
+          <li><a href="#">Книги</a></li>
+          <li><a href="#">Рецензии</a></li>
+        </ul>
+      </nav>
+    </footer>
+
+  </div>
+</body>
+</html>
